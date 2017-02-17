@@ -1,5 +1,6 @@
 import click
 
+from pyp2rpm_analyzer import settings
 from pyp2rpm_analyzer.runner import run_pyp2rpm
 from pyp2rpm_analyzer.builds_push import create_builds
 from pyp2rpm_analyzer.analyzer import analyse_builds
@@ -30,6 +31,9 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
               metavar='NUM',
               default=0)
 def main(run, build, analyse, f, md, rand):
+    if not settings.SAVE_PATH.endswith('/'):
+        settings.SAVE_PATH += '/'
+
     if run:
         run_pyp2rpm(filename=f, md=md, rand=rand)
     if build:

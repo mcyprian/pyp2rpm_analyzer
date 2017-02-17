@@ -33,9 +33,11 @@ def run_pyp2rpm(md=150, rand=150, filename=None):
     else:
         pkgs = chain(most_downloaded(md), random_packages(rand))
     # TODO warning that SAVE_PATH will be cleaned
-    if not settings.SAVE_PATH.endswith('/'):
-        settings.SAVE_PATH += '/'
     clean(settings.SAVE_PATH)
+    failed = set()
     for pkg in pkgs:
-        os.system("{} {} {} {}".format(
+        ret = os.system("{} {} {} {}".format(
             sys.executable, settings.PYP2RPM_BIN, flags, pkg))
+        if ret != 0:
+            failed.add(pkg)
+    print("Failed {}".format(failed))
