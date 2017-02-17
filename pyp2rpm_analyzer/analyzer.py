@@ -10,21 +10,21 @@ from pyp2rpm_analyzer import settings
 
 url_template = settings.PROJECT_URL + '/00{0}-{1}/{2}.log.gz'
 
-ROOT_PATTERNS = {
-    'Missing package': b'No Package found for',
-    'Missing dependency': b'No matching package to install'
-}
+ROOT_PATTERNS = [
+    ('Missing package', b'No Package found for'),
+    ('Missing dependency', b'No matching package to install')
+]
 
-BUILD_PATTERNS = {
-    'Missing extension': b'Could not import extension',
-    'Sphinx': b'Running Sphinx',
-    'Unpackaged files': b'Installed (but unpackaged) file(s) found',
-    'File not found': b'File not found: ',
-    'Python traceback': b'Traceback (most recent call last)',
-    'SyntaxError': b'SyntaxError:',
-    'TestsFailure': b'Bad exit status from .* \(\%check\)',
-    'BuildFailure': b'Bad exit status from .* \(\%build\)'
-}
+BUILD_PATTERNS = [
+    ('Missing extension', b'Could not import extension'),
+    ('Sphinx', b'Running Sphinx'),
+    ('Unpackaged files', b'Installed (but unpackaged) file(s) found'),
+    ('File not found', b'File not found: '),
+    ('Python traceback', b'Traceback (most recent call last)'),
+    ('SyntaxError', b'SyntaxError:'),
+    ('BuildFailure', b'Bad exit status from .* \(\%build\)'),
+    ('TestsFailure', b'Bad exit status from .* \(\%check\)')
+]
 
 
 def builds_iter():
@@ -42,6 +42,16 @@ def builds_iter():
 def failed_builds_iter():
     """Iterator over all failed builds in copr project."""
     cl = copr.create_client2_from_file_config()
+
+# get_builds() method is limited to 100 builds
+#    builds = []
+#    inital_num = 511928
+#    for i in range(140):
+#        print(i)
+#        b = cl.builds.get_one(inital_num + i)
+#        if b.state == 'failed':
+#            builds.append(b)
+
     pypi_project = cl.projects.get_list(name=settings.COPR_PROJECT, limit=3)[0]
     builds = pypi_project.get_builds()
 
@@ -62,9 +72,9 @@ def extract_file_content(msg, filename, fo=None):
             fo.write(line.decode())
 
 
-def find_match(log, pattern_dict, fo):
+def find_match(log, patterns, fo):
     """Search for pattern match in given log ."""
-    for name, pattern in pattern_dict.items():
+    for name, pattern in patterns:
         for line in log:
             if re.search(pattern, line):
                 return name
@@ -78,9 +88,9 @@ def analyse_builds():
     """Analysis of build and root logs. Check if part of log matches
     one of the frequent error patterns, mark build as 'Other error' otherwise.
     """
-    issues_summary = {**BUILD_PATTERNS, **ROOT_PATTERNS}
-    for key in issues_summary:
-        issues_summary[key] = [0, []]
+    issues_summary = {}
+    for error in BUILD_PATTERNS + ROOT_PATTERNS:
+        issues_summary[error[0]] = [0, []]
     issues_summary['Other error'] = [0, []]
 
     with tempfile.TemporaryDirectory() as tempdir:
@@ -103,7 +113,7 @@ def analyse_builds():
                     root_log = extract_file_content("ROOTLOG:\n\n", root_name)
                     build_log = extract_file_content(
                         "\nBUILDLOG:\n\n", build_name)
-                except FileNotFoundError as e:
+                except IOError as e:
                     sys.stderr.write(e)
                     continue
                 if len(build_log) < 10:
